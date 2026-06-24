@@ -35,7 +35,7 @@ Example 2 (comment): "I binge watched this show for the first time last weekend 
 
 Uncertain case: "I love Daisy Jones and The Six" — the post says "I didn't love the cheating storyline... but isn't that exactly what we're supposed to feel? It puts us on an emotional rollercoaster..." This starts to explain why the discomfort works narratively. Could be analysis. Decision: → reaction, because the post is primarily sharing personal enthusiasm; the craft observation is brief and unsupported by specific episode references.
 
-## Discussion
+### discussion
 A question or open-ended prompt that invites the community to share opinions, lists, or recommendations. The post itself doesn't take a strong position — its purpose is to collect responses.
 
 Example 1: "Which children's show that came out after you grew up would you have watched if it came on when you were little?" — Open-ended question, no claim, designed to solicit community answers.
