@@ -12,31 +12,93 @@ A fine-tuned DistilBERT text classifier that categorizes r/television posts and 
 
 ## Labels
 
-| Label | Definition |
-|---|---|
-| `analysis` | Structured argument backed by specific, verifiable references — episode names, characters, production decisions, or named comparisons. Evidence must be traceable, not just general impressions. |
-| `hot_take` | Bold or confident opinion stated without traceable supporting evidence. Asserts a position rather than arguing for it. |
-| `reaction` | Immediate emotional response to something watched or announced. Primarily expresses a feeling rather than making an argument. |
-| `discussion` | Question or open-ended prompt inviting the community to share opinions, lists, or recommendations. The post itself does not take a strong position. |
+### `analysis`
+A structured argument backed by specific, verifiable references — episode names, characters, production decisions, or named comparisons. Evidence must be traceable, not just general impressions.
 
-The hardest boundary is `hot_take` vs. `analysis`: a post that names a craft problem but never cites a specific scene or episode is a `hot_take`, regardless of how confident or detailed it sounds.
+> *Example 1:* "The second season is much better because they made it storyboard driven instead of writing scripts — one of the few cartoons that lets animators make a cartoon." (Cites a specific production decision as the reason for quality improvement.)
+
+> *Example 2:* "Peeves was cast for the first movie but his scenes were cut and they didn't use him after that." (Specific verifiable production history.)
+
+### `hot_take`
+A bold or confident opinion stated without traceable supporting evidence. Asserts a position rather than arguing for it.
+
+> *Example 1:* "Spongebob hasn't been good since season 5 before the original movie came out." (Confident quality claim, no cited episodes or scenes.)
+
+> *Example 2:* "The Agency on Paramount is a top 20 best show ever." (Bold ranking claim with no supporting argument.)
+
+### `reaction`
+An immediate emotional response to something watched or announced. Primarily expresses a feeling rather than making an argument.
+
+> *Example 1:* "I was pleasantly surprised at how funny this show was — I was expecting more horror, but was happy to laugh instead." (Shares personal emotional experience of watching.)
+
+> *Example 2:* "I don't care if these shows keep getting shoveled out but I just wish Avatar was given half the amount of love SpongeBob gets." (Expresses frustration and longing, no argument.)
+
+### `discussion`
+A question or open-ended prompt inviting the community to share opinions, lists, or recommendations. The post itself does not take a strong position.
+
+> *Example 1:* "What's a TV show you started with low expectations that completely blew you away?" (Open community question, no OP claim.)
+
+> *Example 2:* "What, if anything, do you miss about television in the days before streaming platforms?" (Invites community reflection, OP doesn't assert a position.)
+
+**Hardest boundary:** `hot_take` vs. `analysis` — a post that names a craft problem but never cites a specific scene or episode is a `hot_take`, regardless of how confident or detailed it sounds.
 
 ---
 
 ## Data
 
-- **Source:** r/television posts and top-level comments collected manually
-- **Total examples:** 200 (50 per label)
+- **Source:** r/television posts and top-level comments collected manually by browsing Hot, New, and Top tabs. Sidebar "related posts" were also mined for `discussion` examples.
+- **Total examples:** 200
+- **Label distribution:** 50 per label (perfectly balanced)
 - **Split:** 140 train / 30 validation / 30 test (70/15/15)
 - **Annotation:** AI pre-labeled in batches of 20–30, then reviewed by human annotator. See `source` column in `dataset.csv` (`ai_prelabeled` = assistant labeled, `human` = confirmed, `human_override` = corrected).
 
+### Three difficult-to-label examples
+
+**1. Yellowstone critique → `hot_take` (not `analysis`)**
+> *"Yellowstone is super cringe… every single character acts like they're the toughest human being to ever walk the earth… Real tough guys usually don't spend all day trying to sound tough."*
+
+This post is long and structured, which makes it feel like `analysis`. But it never cites a specific scene, episode, or character name — it argues from general impression only. Decision: `hot_take`, because the evidence is personal perception, not traceable to any specific moment.
+
+**2. Reaction with specific scene reference → `reaction` (not `analysis`)**
+> *"I still think the Genealogy scene was one of the funniest bits I've ever watched — and this is a psychological horror."*
+
+This names a specific scene ("Genealogy scene") and makes a genre observation, which looks like `analysis`. But the post's purpose is expressing enthusiasm and surprise — the scene name is emotional context, not argumentative evidence. Decision: `reaction`.
+
+**3. Emmy prediction → `hot_take` (not `analysis`)**
+> *"With its current momentum I feel like it's guaranteed a nomination for outstanding comedy series, as well as acting noms for Matthew Rhys and Kate O'Flynn."*
+
+This names specific people and award categories, which resembles `analysis`. But it's a confident prediction with no cited evidence — no viewership data, no critical consensus, no comparison to past seasons. Decision: `hot_take`.
+
 ---
 
-## Model
+## Fine-Tuning Approach
 
-- **Architecture:** `distilbert-base-uncased` fine-tuned for sequence classification
-- **Hyperparameters:** 5 epochs, learning rate 1e-5, batch size 16, weight decay 0.01, warmup steps 50
+- **Base model:** `distilbert-base-uncased` fine-tuned for sequence classification
 - **Hardware:** Google Colab T4 GPU
+- **Final hyperparameters:** 5 epochs, learning rate 1e-5, batch size 16, weight decay 0.01, warmup steps 50
+
+**Hyperparameter decision:** The first training run used the default 3 epochs and learning rate 2e-5. Validation accuracy peaked at 46.7% and the loss barely moved (1.385 → 1.369), indicating the model was not learning. I reduced the learning rate to 1e-5 (to slow gradient updates and give the model more time to find a good direction) and increased epochs to 5. The second run still failed to converge (final validation accuracy 30%), confirming the issue was not hyperparameter choice alone but a fundamental mismatch between the task's pragmatic signal and the model's capacity with 140 training examples.
+
+## Baseline
+
+**Model:** Groq `llama-3.3-70b-versatile`, zero-shot (no examples provided)
+
+**Prompt used:**
+
+```
+You are classifying posts and comments from r/television.
+Assign each post to exactly one of the following categories.
+
+analysis: A structured argument backed by specific, verifiable references...
+hot_take: A bold or confident opinion stated without traceable supporting evidence...
+reaction: An immediate emotional response to something watched or announced...
+discussion: A question or open-ended prompt inviting the community to share opinions...
+
+Respond with ONLY the label name. Do not explain your reasoning.
+Valid labels: analysis, hot_take, reaction, discussion
+```
+
+**Collection:** Each of the 30 test examples was passed to the API individually with temperature=0. All 30 responses parsed cleanly (0 unparseable).
 
 ---
 
