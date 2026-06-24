@@ -60,9 +60,48 @@ If the post's primary purpose is expressing a feeling ("I loved it," "I'm devast
 If the post is structured as a question to the community → discussion. If it's primarily sharing the author's own feeling or experience (even if it ends with "anyone else?") → reaction.
 
 
-## TODO
-- [ ] Read 30–40 r/television posts and validate labels
-- [ ] Annotate 200 examples (CSV)
-- [ ] Fine-tune DistilBERT on Colab
-- [ ] Run Groq baseline comparison
-- [ ] Write evaluation report
+## Data Collection Plan
+Source: r/television posts and top-level comments, collected manually by browsing Hot, New, and Top (past month) tabs. 
+
+Target volume: 200 examples, aiming for ~50 per label (25% each) to keep the distribution balanced. The model hint says to aim for at least 20% per label — 25% gives headroom.
+
+Split: 140 train / 30 validation / 30 test (70/15/15).
+
+If a label is underrepresented after 150 examples: Actively seek that type. For analysis, browse post flairs or sort by Top (all time) to find longer, more substantive posts. For reaction, browse episode discussion threads or just-finished posts. For discussion, sort by New to catch fresh prompts before they get buried.
+
+What I will not collect: News article links with no post text, mod announcements, and posts under ~20 words (too short to classify reliably).
+
+
+## Evaluation Metrics 
+Overall accuracy — baseline check, but not sufficient on its own because it masks per-class failures.
+
+Per-class F1 (precision + recall) — the primary metric. With 4 labels, a model could learn to ignore a minority class and still post decent accuracy. F1 per label reveals this. I'll report F1 for each of the four labels.
+
+Macro F1 — unweighted average F1 across all 4 labels. This is my single headline metric because it treats all classes equally regardless of frequency.
+
+Confusion matrix — to identify which specific label pairs the model confuses most (expected: hot_take ↔ analysis).
+
+I'm not using weighted F1 as the headline metric because it would favor the majority class and hide failures on harder labels like analysis.
+
+## Defintion of Success
+A classifier is genuinely useful for a community tool if it agrees with a careful human annotator most of the time on the hard cases, not just the easy ones.
+
+Minimum bar (acceptable): Macro F1 ≥ 0.65 on the test set, with no individual label F1 below 0.55. This means the model is doing meaningfully better than random (0.25) and better than always predicting the majority class.
+
+Good enough for deployment: Macro F1 ≥ 0.75, with all per-class F1 ≥ 0.65. At this level, the model would be useful as a first-pass tagger in a real tool, with human review for low-confidence predictions.
+
+Suspicious result: Macro F1 > 0.95 — at that point I'd check for test set leakage or label collapse.
+
+The fine-tuned model must also outperform the Groq zero-shot baseline. If it doesn't, fine-tuning didn't help and the labels may be too easy or too vague.
+
+
+## AI Tool Plan
+### Label stress-testing
+Before annotating 200 examples, I will give Claude my four label definitions and edge case rules and ask it to generate 10 posts that sit at the boundary between two labels — specifically hot_take vs. analysis and reaction vs. hot_take. If I can't cleanly classify the generated posts using my decision rules, I'll tighten the definitions before starting annotation.
+
+### Annotation assistance
+I will use Claude (via claude.ai) to pre-label batches of 20–30 posts at a time by providing my label definitions and asking for a label + one-sentence justification per post. I will then review every pre-labeled example myself and override any I disagree with. I'll track which examples were pre-labeled in a source column in the CSV (human or ai_prelabeled) for disclosure. Pre-labeled examples I override will be flagged as human_override.
+
+### Failure analysis 
+After fine-tuning, I will collect all test set examples where the model predicted the wrong label and paste them (with true label, predicted label, and post text) into Claude with the prompt: "Identify any systematic pattern in these misclassifications." I'll verify any patterns it identifies by manually reviewing the examples myself before including them in the evaluation report.
+
